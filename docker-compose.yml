@@ -1,0 +1,65 @@
+services:
+  redis:
+    image: redis:6.2.6
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    restart: always
+
+  order_service:
+    build:
+      context: ./services/order_service
+    container_name: order_service
+    depends_on:
+      - redis
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - backend
+    restart: always
+
+  validation_service:
+    build:
+      context: ./services/validation_service
+    container_name: validation_service
+    depends_on:
+      - redis
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./data:/app/data
+    networks:
+      - backend
+    restart: always
+
+  external_service:
+    build:
+      context: ./services/external_service
+    container_name: external_service
+    depends_on:
+      - redis
+    ports:
+      - "5003:5003"
+    networks:
+      - backend
+    restart: always
+
+  monitor_service:
+    build:
+      context: ./services/monitor_service
+    container_name: monitor_service
+    depends_on:
+      - redis
+    ports:
+      - "5004:5004"
+    networks:
+      - backend
+    restart: always
+
+networks:
+  backend:
+    driver: bridge
