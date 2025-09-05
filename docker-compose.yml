@@ -28,11 +28,26 @@ services:
     container_name: validation_service
     depends_on:
       - redis
+    ports:
+      - "5002:5002"
     volumes:
       - ./data:/app/data
     networks:
       - backend
     restart: always
+
+  validation_worker:
+    build:
+      context: ./services/validation_service
+    container_name: validation_worker
+    depends_on:
+      - redis
+    volumes:
+      - ./data:/app/data
+    networks:
+      - backend
+    restart: always
+    command: ["python", "-c", "from app import start_worker; start_worker()"]
 
   external_service:
     build:
@@ -41,7 +56,7 @@ services:
     depends_on:
       - redis
     ports:
-      - "5002:5002"
+      - "5003:5003"
     environment:
       - FAILURE_MODE=normal
     networks:
@@ -55,7 +70,7 @@ services:
     depends_on:
       - redis
     ports:
-      - "5003:5003"
+      - "5004:5004"
     networks:
       - backend
     restart: always

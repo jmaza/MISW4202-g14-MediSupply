@@ -4,6 +4,7 @@ import redis
 from rq import Queue
 from enums import OrderStatus
 from requests import codes
+from datetime import datetime
 
 # Configuración de Flask
 app = Flask(__name__)
@@ -64,6 +65,30 @@ def get_orders():
     conn.close()
 
     return jsonify({"orders": orders}), codes.OK
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Readiness check - verifica que el servicio puede procesar órdenes."""
+    try:
+        # Verificar Redis (crítico para el funcionamiento)
+        redis_client.ping()
+        
+        # Verificar base de datos
+        conn = sqlite3.connect(DATABASE)
+        conn.close()
+        
+        return jsonify({
+            "service": "order_service",
+            "status": codes.OK,
+            "timestamp": datetime.now().isoformat()
+        }), codes.OK
+    except Exception as e:
+        return jsonify({
+            "service": "order_service",
+            "status": codes.SERVICE_UNAVAILABLE,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), codes.SERVICE_UNAVAILABLE
 
 if __name__ == "__main__":
     init_db()

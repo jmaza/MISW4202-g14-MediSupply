@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 import sqlite3
 import redis
 import requests
@@ -6,6 +6,8 @@ from rq import Worker, Queue
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from enums import OrderStatus
+from datetime import datetime
+from requests import codes
 
 app = Flask(__name__)
 
@@ -18,7 +20,7 @@ redis_client = redis.StrictRedis(host="redis", port=6379, db=0)
 queue = Queue(connection=redis_client)
 
 DATABASE = "data/db.sqlite"
-EXTERNAL_SERVICE_URL = "http://external_service:5002/validate"
+EXTERNAL_SERVICE_URL = "http://external_service:5003/validate"
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def call_external_service(order_data):
@@ -59,5 +61,29 @@ def start_worker():
     worker = Worker([queue], connection=redis_client)
     worker.work()
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Readiness check - verifica que el servicio puede validar órdenes."""
+    try:
+        # Verificar Redis (crítico para RQ)
+        redis_client.ping()
+        
+        # Verificar base de datos
+        conn = sqlite3.connect(DATABASE)
+        conn.close()
+        
+        return jsonify({
+            "service": "validation_service", 
+            "status": codes.OK,
+            "timestamp": datetime.now().isoformat()
+        }), codes.OK
+    except Exception as e:
+        return jsonify({
+            "service": "validation_service",
+            "status": codes.SERVICE_UNAVAILABLE, 
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), codes.SERVICE_UNAVAILABLE
+
 if __name__ == "__main__":
-    start_worker()  # Inicia el worker para procesar los pedidos
+    app.run(debug=True, host="0.0.0.0", port=5002)

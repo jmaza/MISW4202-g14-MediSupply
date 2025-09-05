@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
-import random
 import time
 import os
 from requests import codes
 from enums import FailureMode
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -39,6 +39,22 @@ def validate_order():
         "message": "Order validated successfully" if is_valid else "Order rejected"
     }), codes.OK
 
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint para el monitor."""
+    if FAILURE_MODE == FailureMode.DOWN:
+        return jsonify({
+            "service": "external_service",
+            "status": codes.SERVICE_UNAVAILABLE,
+            "error": "Service unavailable",
+            "timestamp": datetime.now().isoformat()
+        }), codes.SERVICE_UNAVAILABLE
+    
+    return jsonify({
+        "service": "external_service", 
+        "status": codes.OK,
+        "timestamp": datetime.now().isoformat()
+    }), codes.OK
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002)
+    app.run(debug=True, host="0.0.0.0", port=5003)
