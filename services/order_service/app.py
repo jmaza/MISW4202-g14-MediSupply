@@ -90,6 +90,20 @@ def health_check():
             "timestamp": datetime.now().isoformat()
         }), codes.SERVICE_UNAVAILABLE
 
+@app.route("/clear_orders", methods=["DELETE"])
+def clear_orders():
+    """Elimina todas las órdenes de la base de datos."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("DELETE FROM orders")
+        conn.commit()
+        conn.close()
+        
+        return jsonify({"message": "All orders cleared successfully!"}), codes.OK
+    except Exception as e:
+        return jsonify({"error": str(e)}), codes.INTERNAL_SERVER_ERROR
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=True, host="0.0.0.0", port=5001)
