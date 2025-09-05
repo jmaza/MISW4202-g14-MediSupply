@@ -3,3 +3,4 @@ redis==5.0.8
 rq==2.5.0
 requests==2.32.3
 tenacity==9.1.2
+pybreaker==1.4.0

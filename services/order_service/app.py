@@ -42,7 +42,7 @@ def create_order():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     c.execute("INSERT INTO orders (order_id, product, quantity, status) VALUES (?, ?, ?, ?)",
-              (order_id, product, quantity, OrderStatus.PENDING))
+              (order_id, product, quantity, OrderStatus.PROCESSING))
     conn.commit()
     conn.close()
 

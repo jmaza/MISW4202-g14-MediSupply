@@ -57,8 +57,6 @@ services:
       - redis
     ports:
       - "5003:5003"
-    environment:
-      - FAILURE_MODE=normal
     networks:
       - backend
     restart: always
