@@ -71,13 +71,20 @@ def validate_order():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint para el monitor."""
-    if current_failure_mode == FailureMode.DOWN:
+    if current_failure_mode in [FailureMode.DOWN, FailureMode.ERROR]:
         return jsonify({
             "service": "external_service",
             "status": codes.SERVICE_UNAVAILABLE,
             "error": "Service unavailable",
             "timestamp": datetime.now().isoformat()
         }), codes.SERVICE_UNAVAILABLE
+    
+    if current_failure_mode == FailureMode.SLOW:
+        return jsonify({
+            "service": "external_service", 
+            "status": codes.GATEWAY_TIMEOUT,
+            "timestamp": datetime.now().isoformat(),
+        }), codes.GATEWAY_TIMEOUT
     
     return jsonify({
         "service": "external_service", 

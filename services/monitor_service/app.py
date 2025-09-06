@@ -6,6 +6,9 @@ import logging
 from datetime import datetime
 from requests import codes
 from enums import HealthStatus
+import threading
+import schedule
+import json
 
 app = Flask(__name__)
 
@@ -26,11 +29,19 @@ SERVICES = {
 def check_service_health(service_name, url):
     """Verifica el estado de un servicio específico."""
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=15)
+        response_time = response.elapsed.total_seconds()
+        
         if response.status_code == codes.OK:
             return {
                 "status": HealthStatus.HEALTHY, 
-                "response_time": response.elapsed.total_seconds(),
+                "response_time": response_time,
+                "service": service_name
+            }
+        elif response.status_code == codes.GATEWAY_TIMEOUT:
+            return {
+                "status": HealthStatus.DEGRADED, 
+                "error": "Service running slow",
                 "service": service_name
             }
         else:
@@ -46,110 +57,73 @@ def check_service_health(service_name, url):
             "service": service_name
         }
 
-def check_redis_health():
-    """Verifica el estado de Redis."""
+def check_all_services():
+    """Verifica todos los servicios una vez."""
     try:
-        redis_client.ping()
-        queue_length = redis_client.llen("order_queue")
-        return {
-            "status": HealthStatus.HEALTHY,
-            "queue_length": queue_length,
-            "info": "Redis connection successful"
-        }
-    except Exception as e:
-        return {"status": HealthStatus.DOWN, "error": str(e)}
-
-@app.route("/monitor_health", methods=["GET"])
-def monitor_health():
-    """Endpoint principal de monitoreo."""
-    health_report = {
-        "timestamp": datetime.now().isoformat(),
-        "overall_status": HealthStatus.HEALTHY,
-        "services": {},
-        "infrastructure": {}
-    }
-    
-    # Verificar Redis
-    redis_health = check_redis_health()
-    health_report["infrastructure"]["redis"] = redis_health
-    
-    # Verificar cada servicio
-    unhealthy_services = 0
-    for service_name, url in SERVICES.items():
-        service_health = check_service_health(service_name, url)
-        health_report["services"][service_name] = service_health
+        timestamp = datetime.now().isoformat()
+        results = {}
         
-        if service_health["status"] != HealthStatus.HEALTHY:
-            unhealthy_services += 1
-    
-    # Determinar estado general
-    if redis_health["status"] != HealthStatus.HEALTHY:
-        health_report["overall_status"] = HealthStatus.CRITICAL
-    elif unhealthy_services > 0:
-        health_report["overall_status"] = HealthStatus.DEGRADED
-    
-    # Log del estado
-    logger.info(f'Health check completed - Status: {health_report["overall_status"]}')
-    
-    # Código de respuesta HTTP basado en el estado
-    status_code = codes.OK
-    if health_report["overall_status"] == HealthStatus.CRITICAL:
-        status_code = codes.SERVICE_UNAVAILABLE
-    elif health_report["overall_status"] == HealthStatus.DEGRADED:
-        status_code = codes.PARTIAL_CONTENT  # Partial Content
-    
-    return jsonify(health_report), status_code
-
-@app.route("/monitor_metrics", methods=["GET"])
-def monitor_metrics():
-    """Endpoint para métricas específicas."""
-    try:
-        metrics = {
-            "timestamp": datetime.now().isoformat(),
-            "redis": {
-                "queue_length": redis_client.llen("order_queue"),
-                "memory_usage": redis_client.info("memory").get("used_memory_human", "N/A"),
-                "connected_clients": redis_client.info("clients").get("connected_clients", 0)
-            },
-            "system": {
-                "uptime": time.time() - app.start_time if hasattr(app, "start_time") else 0
-            }
-        }
-        return jsonify(metrics), codes.OK
+        for service_name, url in SERVICES.items():
+            health = check_service_health(service_name, url)
+            results[service_name] = health
+            
+            # Log solo cambios de estado o fallas
+            if health["status"] != HealthStatus.HEALTHY:
+                logger.warning(f"{service_name}: {health['status']} - {health.get('error', '')}")
+        
+        # Almacenar resultados en Redis
+        redis_client.setex("health_status", 300, json.dumps({
+            "timestamp": timestamp,
+            "services": results
+        }))
+        
     except Exception as e:
-        logger.error(f"Error getting metrics: {e}")
-        return jsonify({"error": "Failed to get metrics"}), codes.INTERNAL_SERVER_ERROR
+        logger.error(f"Error in health check: {e}")
+
+def run_scheduler():
+    """Ejecuta el scheduler en un hilo separado."""
+    schedule.every(30).seconds.do(check_all_services)
+    
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+@app.route("/health_status", methods=["GET"])
+def get_health_status():
+    """Obtiene el estado actual de todos los servicios."""
+    try:
+        status = redis_client.get("health_status")
+        if status:
+            return jsonify(json.loads(status)), codes.OK
+        else:
+            return jsonify({"error": "No health data available"}), codes.NOT_FOUND
+    except Exception as e:
+        return jsonify({"error": str(e)}), codes.INTERNAL_SERVER_ERROR
 
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check del propio monitor service."""
     try:
-        # Verificar Redis (crítico para el monitor)
         redis_client.ping()
-        
         return jsonify({
             "service": "monitor_service",
             "status": HealthStatus.HEALTHY,
             "timestamp": datetime.now().isoformat()
         }), codes.OK
-        
-    except redis.ConnectionError:
-        return jsonify({
-            "service": "monitor_service",
-            "status": HealthStatus.DOWN,
-            "error": "Redis connection failed",
-            "timestamp": datetime.now().isoformat()
-        }), codes.SERVICE_UNAVAILABLE
-        
     except Exception as e:
         return jsonify({
             "service": "monitor_service",
-            "status": HealthStatus.DEGRADED,
+            "status": HealthStatus.DOWN,
             "error": str(e),
             "timestamp": datetime.now().isoformat()
-        }), codes.PARTIAL_CONTENT
+        }), codes.SERVICE_UNAVAILABLE
 
 if __name__ == "__main__":
-    app.start_time = time.time()
     logger.info("Monitor Service starting...")
+    
+    # Iniciar scheduler en hilo separado
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()
+    logger.info("Periodic health checks started (every 30 seconds)")
+    
     app.run(debug=True, host="0.0.0.0", port=5004)
