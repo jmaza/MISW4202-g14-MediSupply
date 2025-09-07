@@ -158,7 +158,7 @@ docker compose logs -f monitor_service
 
 The experiment validates these resilience patterns:
 
-### 1. Response Time ≤ 2 seconds
+### 1. Response Time <= 2 seconds
 - Order creation should respond within 2 seconds even when external service is down
 - Orders are queued for later processing
 
@@ -169,13 +169,13 @@ The experiment validates these resilience patterns:
 ### 3. Failure Detection
 - Monitor service detects and reports external service failures
 - Different failure modes are properly identified:
-  - `HEALTHY`: Normal operation
-  - `DEGRADED`: Slow responses  
-  - `UNHEALTHY`: HTTP errors
-  - `DOWN`: Service unavailable
+    - `HEALTHY`: Normal operation
+    - `DEGRADED`: Slow responses
+    - `UNHEALTHY`: HTTP errors
+    - `DOWN`: Service unavailable
 
 ### 4. State Consistency
-- Orders transition through states only once: `Processing` → `Validated`/`Rejected`/`Failed`
+- Orders transition through states only once: `Processing` to `Validated`/`Rejected`/`Failed`
 - No duplicate processing
 
 ## Resilience Patterns Implemented
@@ -241,5 +241,4 @@ docker compose down --rmi all
 ├── data/                     # SQLite database storage
 └── README.md
 ```
-
 
