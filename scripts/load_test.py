@@ -29,14 +29,14 @@ class SimpleOrderTester:
             )
             
             if response.status_code == 200:
-                print(f"✅ Order {order_id} created")
+                print(f"Order {order_id} created")
                 return True
             else:
-                print(f"❌ Order {order_id} failed: {response.status_code}")
+                print(f"Order {order_id} failed: {response.status_code}")
                 return False
                 
         except Exception as e:
-            print(f"❌ Order {order_id} error: {e}")
+            print(f"Order {order_id} error: {e}")
             return False
     
     def set_failure_mode(self, mode):
@@ -48,22 +48,22 @@ class SimpleOrderTester:
                 timeout=5
             )
             if response.status_code == 200:
-                print(f"✅ Failure mode set to: {mode}")
+                print(f"Failure mode set to: {mode}")
                 return True
             else:
-                print(f"❌ Failed to set failure mode: {response.text}")
+                print(f"Failed to set failure mode: {response.text}")
                 return False
         except Exception as e:
-            print(f"❌ Error setting failure mode: {e}")
+            print(f"Error setting failure mode: {e}")
             return False
     
     def create_orders(self, failure_mode="normal"):
         """Crea las órdenes secuencialmente."""
-        print(f"\n🔧 Setting failure mode to: {failure_mode}")
+        print(f"\nSetting failure mode to: {failure_mode}")
         if not self.set_failure_mode(failure_mode):
             return
         
-        print(f"\n📦 Creating {self.num_orders} orders...")
+        print(f"\nCreating {self.num_orders} orders...")
         
         successful = 0
         for i in range(self.num_orders):
@@ -72,7 +72,7 @@ class SimpleOrderTester:
                 successful += 1
             time.sleep(0.5)
         
-        print(f"\n📊 Summary: {successful}/{self.num_orders} orders created successfully")
+        print(f"\nSummary: {successful}/{self.num_orders} orders created successfully")
 
 
 def clear_database():
@@ -80,13 +80,13 @@ def clear_database():
     try:
         response = requests.delete(f"{ORDER_SERVICE_URL}/clear_orders", timeout=5)
         if response.status_code == 200:
-            print("   ✅ Database cleared")
+            print("   Database cleared")
             return True
         else:
-            print("   ❌ Failed to clear database")
+            print("   Failed to clear database")
             return False
     except Exception as e:
-        print(f"   ❌ Error clearing database: {e}")
+        print(f"   Error clearing database: {e}")
         return False
 
 def main():
