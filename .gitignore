@@ -141,3 +141,7 @@ cython_debug/
 #VSC Settings
 .vscode
 .idea/*
+
+#data files
+data
+
