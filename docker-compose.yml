@@ -73,6 +73,19 @@ services:
       - backend
     restart: always
 
+  api_gateway:
+    build:
+      context: ./services/api_gateway
+    container_name: api_gateway
+    depends_on:
+      - redis
+      - order_service
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+    restart: always
+
 networks:
   backend:
     driver: bridge
