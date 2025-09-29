@@ -47,7 +47,8 @@ sequenceDiagram
 
 ## Architecture Overview
 
-The system consists of 5 microservices:
+The system consists of 6 microservices:
+- **API Gateway** (Port 8080): Single entry point for external requests, proxies to internal services
 - **Order Service** (Port 5001): Receives order creation requests and queues them
 - **Validation Service** (Port 5002): Processes orders asynchronously and validates with external service
 - **External Service** (Port 5003): Simulates third-party validation service with controllable failure modes
@@ -86,6 +87,7 @@ docker compose ps
 
 ```bash
 # Check individual service health
+curl http://localhost:8080/health  # API Gateway
 curl http://localhost:5001/health  # Order Service
 curl http://localhost:5002/health  # Validation Service  
 curl http://localhost:5003/health  # External Service
@@ -98,7 +100,12 @@ curl http://localhost:5004/health_status
 ### 3. Create Test Orders
 
 ```bash
-# Create 10 orders in normal mode
+# Create orders through API Gateway (recommended)
+curl -X POST http://localhost:8080/create_order \
+  -H "Content-Type: application/json" \
+  -d '{"order_id": "test-001", "product": "Medicine A", "quantity": 10}'
+
+# Or use the load test script (will need updating for gateway)
 python scripts/load_test.py --orders 10 --mode normal
 
 # View created orders
@@ -215,6 +222,10 @@ docker compose down --rmi all
 ├── docker-compose.yml          # Service orchestration
 ├── requirements.txt            # Python dependencies
 ├── services/
+│   ├── api_gateway/           # External API entry point
+│   │   ├── app.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
 │   ├── order_service/         # Order creation and queuing
 │   │   ├── app.py
 │   │   ├── Dockerfile
